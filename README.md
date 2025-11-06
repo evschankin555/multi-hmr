@@ -5,7 +5,7 @@
   <p align="center">
     <a href="https://fabienbaradel.github.io/">Fabien Baradel*</a>, 
     <a href="https://europe.naverlabs.com/people_user_naverlabs/matthieu-armando/">Matthieu Armando</a>,  
-    <a href="https://europe.naverlabs.com/people_user_naverlabs/Salma-Galaaoui/?asp_highlight=Salma+Galaaoui&p_asid=9">Salma Galaaoui</a>,  
+    <a href="https://salmag98.github.io/">Salma Galaaoui</a>,  
     <a href="https://europe.naverlabs.com/people_user_naverlabs/Romain-Br%C3%A9gier/">Romain Brégier</a>,  <br>
     <a href="[./](https://europe.naverlabs.com/people_user_naverlabs/Philippe-Weinzaepfel/?asp_highlight=Philippe+Weinzaepfel&p_asid=9)">Philippe Weinzaepfel</a>, 
     <a href="https://europe.naverlabs.com/people_user_naverlabs/Gregory-Rogez/">Grégory Rogez</a>, 
