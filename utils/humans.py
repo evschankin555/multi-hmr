@@ -8,6 +8,7 @@ import torch
 import roma
 from smplx.joint_names import JOINT_NAMES
 
+
 def rot6d_to_rotmat(x):
     """
     6D rotation representation to 3x3 rotation matrix.
@@ -16,9 +17,22 @@ def rot6d_to_rotmat(x):
     Returns:
         torch.Tensor: Batch of corresponding rotation matrices with shape (B,3,3).
     """
-    x = x.reshape(-1,2,3).permute(0, 2, 1).contiguous()
+    x = x.reshape(-1, 2, 3).permute(0, 2, 1).contiguous()
     y = roma.special_gramschmidt(x)
     return y
 
+
 def get_smplx_joint_names(*args, **kwargs):
     return JOINT_NAMES[:127]
+
+
+def rotation_to_homogeneous(x):
+    return torch.cat(
+        [
+            torch.cat([x, torch.zeros(x.shape[:-2] + (3, 1), device=x.device)], dim=-1),
+            torch.tensor([0, 0, 0, 1], dtype=x.dtype, device=x.device).expand(
+                x.shape[:-2] + (1, 4)
+            ),
+        ],
+        dim=-2,
+    )

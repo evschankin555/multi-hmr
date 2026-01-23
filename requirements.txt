@@ -23,3 +23,6 @@ plyfile==1.0.3
 
 # for smpl
 chumpy==0.70
+
+# for anny
+anny

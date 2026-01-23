@@ -404,7 +404,7 @@ def get_bbox(points, factor=1., output_format='xywh'):
     else:
         raise NotImplementedError
 
-def render_side_views(img_array, _color, humans, model, K):
+def render_side_views(img_array, _color, humans, model, K, faces):
     _bg = 255. # white
 
     # camera
@@ -413,7 +413,7 @@ def render_side_views(img_array, _color, humans, model, K):
 
     # Get the vertices produced by the model.
     l_verts = [humans[j]['v3d'].cpu().numpy() for j in range(len(humans))]
-    l_faces = [model.smpl_layer['neutral_10'].bm_x.faces for j in range(len(humans))]
+    l_faces = [faces for j in range(len(humans))]
 
     bg_array = 1 + 0.*img_array.copy()
     if len(humans) == 0:

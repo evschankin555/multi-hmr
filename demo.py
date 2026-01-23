@@ -1,7 +1,3 @@
-# Multi-HMR
-# Copyright (c) 2024-present NAVER Corp.
-# CC BY-NC-SA 4.0 license
-
 import os 
 os.environ["PYOPENGL_PLATFORM"] = "egl"
 os.environ['EGL_DEVICE_ID'] = '0'
@@ -18,13 +14,14 @@ import time
 
 from utils import normalize_rgb, render_meshes, get_focalLength_from_fieldOfView, demo_color as color, print_distance_on_image, render_side_views, create_scene, MEAN_PARAMS, CACHE_DIR_MULTIHMR, SMPLX_DIR
 from model import Model
+from multi_hmr_v2.multi_hmr import Multi_HMR_v2 as ModelAnny
 from pathlib import Path
-import warnings
 
 torch.cuda.empty_cache()
 
 np.random.seed(seed=0)
 random.seed(0)
+import ipdb
 
 def open_image(img_path, img_size, device=torch.device('cuda')):
     """ Open image at path, resize and pad """
@@ -71,13 +68,11 @@ def load_model(model_name, device=torch.device('cuda')):
         print(f"{ckpt_path} not found...")
         print("It should be the first time you run the demo code")
         print("Downloading checkpoint from NAVER LABS Europe website...")
-        
         try:
-            os.system(f"wget -O {ckpt_path} https://download.europe.naverlabs.com/ComputerVision/MultiHMR/{model_name}.pt")
+            os.system(f"wget -O {ckpt_path} http://download.europe.naverlabs.com/multihmr/{model_name}.pt")
             print(f"Ckpt downloaded to {ckpt_path}")
         except:
-            print("Please contact fabien.baradel@naverlabs.com or open an issue on the github repo")
-            return 0
+            assert "Please contact fabien.baradel@naverlabs.com or open an issue on the github repo"
 
     # Load weights
     print("Loading model")
@@ -89,9 +84,12 @@ def load_model(model_name, device=torch.device('cuda')):
             kwargs[k] = v
 
     # Build the model.
-    kwargs['type'] = ckpt['args'].train_return_type
-    kwargs['img_size'] = ckpt['args'].img_size[0]
-    model = Model(**kwargs).to(device)
+    if 'anny' in ckpt_path:
+        model = ModelAnny(**kwargs).to(device)
+    else:
+        kwargs['type'] = ckpt['args'].train_return_type
+        kwargs['img_size'] = ckpt['args'].img_size[0]
+        model = Model(**kwargs).to(device)
 
     # Load weights into model.
     model.load_state_dict(ckpt['model_state_dict'], strict=False)
@@ -109,15 +107,17 @@ def forward_model(model, input_image, camera_parameters,
     # Forward the model.
     with torch.no_grad():
         with torch.cuda.amp.autocast(enabled=True):
+            # print(model.backbone.encoder.patch_embed.proj.bias.dtype, input_image.dtype)
             humans = model(input_image, 
                            is_training=False, 
                            nms_kernel_size=int(nms_kernel_size),
                            det_thresh=det_thresh,
                            K=camera_parameters)
+            # print(humans[0]['j2d_smplx'].dtype)
 
     return humans
 
-def overlay_human_meshes(humans, K, model, img_pil, unique_color=False):
+def overlay_human_meshes(humans, faces, K, model, img_pil, unique_color=False):
 
     # Color of humans seen in the image.
     _color = [color[0] for _ in range(len(humans))] if unique_color else color
@@ -127,16 +127,24 @@ def overlay_human_meshes(humans, K, model, img_pil, unique_color=False):
     princpt = np.asarray([K[0,0,-1].cpu().numpy(),K[0,1,-1].cpu().numpy()])
 
     # Get the vertices produced by the model.
-    verts_list = [humans[j]['v3d'].cpu().numpy() for j in range(len(humans))]
-    faces_list = [model.smpl_layer['neutral_10'].bm_x.faces for j in range(len(humans))]
+    pred_rend_array = np.asarray(img_pil)
+    if len(humans) > 0:
+        try:
+            name = 'verts_smplx' if 'verts_smplx' in humans[0] else 'v3d'
+            verts_list = [humans[j][name].cpu().numpy() for j in range(len(humans))]
+            faces_list = [faces for j in range(len(humans))]
 
-    # Render the meshes onto the image.
-    pred_rend_array = render_meshes(np.asarray(img_pil), 
-            verts_list,
-            faces_list,
-            {'focal': focal, 'princpt': princpt},
-            alpha=1.0,
-            color=_color)
+            # Render the meshes onto the image.
+            pred_rend_array = render_meshes(np.asarray(img_pil), 
+                    verts_list,
+                    faces_list,
+                    {'focal': focal, 'princpt': princpt},
+                    alpha=0.8,
+                    color=_color)
+        except Exception as e:
+            print("Rendering error:", e)
+            if len(humans) > 0:
+                print(humans[0].keys())
 
     return pred_rend_array, _color
 
@@ -159,25 +167,28 @@ if __name__ == "__main__":
 
         assert torch.cuda.is_available()
 
-        # SMPL-X models
-        smplx_fn = os.path.join(SMPLX_DIR, 'smplx', 'SMPLX_NEUTRAL.npz')
-        if not os.path.isfile(smplx_fn):
-            print(f"{smplx_fn} not found, please download SMPLX_NEUTRAL.npz file")
-            print("To do so you need to create an account in https://smpl-x.is.tue.mpg.de")
-            print("Then download 'SMPL-X-v1.1 (NPZ+PKL, 830MB) - Use thsi for SMPL-X Python codebase'")
-            print(f"Extract the zip file and move SMPLX_NEUTRAL.npz to {smplx_fn}")
-            print("Sorry for this incovenience but we do not have license for redustributing SMPLX model")
-            assert NotImplementedError
-        else:
-             print('SMPLX found')
-             
-        # SMPL mean params download
-        if not os.path.isfile(MEAN_PARAMS):
-            print('Start to download the SMPL mean params')
-            os.system(f"wget -O {MEAN_PARAMS}  https://openmmlab-share.oss-cn-hangzhou.aliyuncs.com/mmhuman3d/models/smpl_mean_params.npz?versionId=CAEQHhiBgICN6M3V6xciIDU1MzUzNjZjZGNiOTQ3OWJiZTJmNThiZmY4NmMxMTM4")
-            print('SMPL mean params have been succesfully downloaded')
-        else:
-            print('SMPL mean params is already here')
+        is_anny = 'anny' in args.model_name.lower()
+
+        if not is_anny:
+            # SMPL-X models
+            smplx_fn = os.path.join(SMPLX_DIR, 'smplx', 'SMPLX_NEUTRAL.npz')
+            if not os.path.isfile(smplx_fn):
+                print(f"{smplx_fn} not found, please download SMPLX_NEUTRAL.npz file")
+                print("To do so you need to create an account in https://smpl-x.is.tue.mpg.de")
+                print("Then download 'SMPL-X-v1.1 (NPZ+PKL, 830MB) - Use thsi for SMPL-X Python codebase'")
+                print(f"Extract the zip file and move SMPLX_NEUTRAL.npz to {smplx_fn}")
+                print("Sorry for this incovenience but we do not have license for redustributing SMPLX model")
+                assert NotImplementedError
+            else:
+                print('SMPLX found')
+                
+            # SMPL mean params download
+            if not os.path.isfile(MEAN_PARAMS):
+                print('Start to download the SMPL mean params')
+                os.system(f"wget -O {MEAN_PARAMS}  https://openmmlab-share.oss-cn-hangzhou.aliyuncs.com/mmhuman3d/models/smpl_mean_params.npz?versionId=CAEQHhiBgICN6M3V6xciIDU1MzUzNjZjZGNiOTQ3OWJiZTJmNThiZmY4NmMxMTM4")
+                print('SMPL mean params have been succesfully downloaded')
+            else:
+                print('SMPL mean params is already here')
 
         # Input images
         suffixes = ('.jpg', '.jpeg', '.png', '.webp')
@@ -185,6 +196,11 @@ if __name__ == "__main__":
 
         # Loading
         model = load_model(args.model_name)
+
+        if is_anny:
+            faces = model.body_model.faces.cpu().numpy()
+        else:
+            faces = model.smpl_layer['neutral_10'].bm_x.faces
 
         # Model name for saving results.
         model_name = os.path.basename(args.model_name)
@@ -216,7 +232,7 @@ if __name__ == "__main__":
             # Superimpose predicted human meshes to the input image.
             img_array = np.asarray(img_pil_nopad)
             img_pil_visu= Image.fromarray(img_array)
-            pred_rend_array, _color = overlay_human_meshes(humans, K, model, img_pil_visu, unique_color=args.unique_color)
+            pred_rend_array, _color = overlay_human_meshes(humans, faces, K, model, img_pil_visu, unique_color=args.unique_color)
 
             # Optionally add distance as an annotation to each mesh
             if args.distance:
@@ -228,7 +244,7 @@ if __name__ == "__main__":
             # More views
             if args.extra_views:
                 # Render more side views of the meshes.
-                pred_rend_array_bis, pred_rend_array_sideview, pred_rend_array_bev = render_side_views(img_array, _color, humans, model, K)
+                pred_rend_array_bis, pred_rend_array_sideview, pred_rend_array_bev = render_side_views(img_array, _color, humans, model, K, faces=faces)
 
                 # Concat
                 _img1 = np.concatenate([img_array, pred_rend_array],1).astype(np.uint8)
@@ -244,17 +260,22 @@ if __name__ == "__main__":
             Image.fromarray(_img).save(save_fn)
             print(f"Avg Multi-HMR inference time={int(1000*np.median(np.asarray(l_duration[-1:])))}ms on a {torch.cuda.get_device_name()}")
 
+            # # GIF
+            # if 0:
+            #     pred_images = render_gif(img_array, _color, humans, model, K)
+            #     ipdb.set_trace()
+
             # Saving mesh
             if args.save_mesh:
                 # npy file
-                l_mesh = [hum['v3d'].cpu().numpy() for hum in humans]
+                l_mesh = [hum['verts_smplx'].cpu().numpy() for hum in humans]
                 mesh_fn = save_fn+'.npy'
                 np.save(mesh_fn, np.asarray(l_mesh), allow_pickle=True)
                 x = np.load(mesh_fn, allow_pickle=True)
 
                 # glb file
-                l_mesh = [humans[j]['v3d'].detach().cpu().numpy() for j in range(len(humans))]
-                l_face = [model.smpl_layer['neutral_10'].bm_x.faces for j in range(len(humans))]
+                l_mesh = [humans[j]['verts_smplx'].detach().cpu().numpy() for j in range(len(humans))]
+                l_face = [faces for j in range(len(humans))]
                 scene = create_scene(img_pil_visu, l_mesh, l_face, color=None, metallicFactor=0., roughnessFactor=0.5)
                 scene_fn = save_fn+'.glb'
                 scene.export(scene_fn)

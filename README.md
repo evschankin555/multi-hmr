@@ -28,14 +28,14 @@
   <!-- <a href="./"><img alt="Hugging Face Spaces" src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue"></a> -->
   </p>
 
-  <p align="left">
+  <!-- <p align="left">
   <a href="https://paperswithcode.com/sota/human-mesh-recovery-on-bedlam?p=multi-hmr-multi-person-whole-body-human-mesh"><img src="https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-hmr-multi-person-whole-body-human-mesh/human-mesh-recovery-on-bedlam"></a><br>
   <a href="https://paperswithcode.com/sota/3d-human-reconstruction-on-ehf?p=multi-hmr-multi-person-whole-body-human-mesh"><img src="https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-hmr-multi-person-whole-body-human-mesh/3d-human-reconstruction-on-ehf"></a><br>
   <a href="https://paperswithcode.com/sota/3d-human-pose-estimation-on-ubody?p=multi-hmr-multi-person-whole-body-human-mesh"><img src="https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-hmr-multi-person-whole-body-human-mesh/3d-human-pose-estimation-on-ubody"></a><br>
   <a href="https://paperswithcode.com/sota/3d-multi-person-mesh-recovery-on-agora?p=multi-hmr-multi-person-whole-body-human-mesh"><img src="https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-hmr-multi-person-whole-body-human-mesh/3d-multi-person-mesh-recovery-on-agora"></a><br>
   <a href="https://paperswithcode.com/sota/3d-multi-person-human-pose-estimation-on?p=multi-hmr-multi-person-whole-body-human-mesh"><img src="https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-hmr-multi-person-whole-body-human-mesh/3d-multi-person-human-pose-estimation-on"></a><br>
   <a href="https://paperswithcode.com/sota/3d-human-pose-estimation-on-3dpw?p=multi-hmr-multi-person-whole-body-human-mesh"><img src="https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-hmr-multi-person-whole-body-human-mesh/3d-human-pose-estimation-on-3dpw"></a><br>
-  </p>
+  </p> -->
 
   <div align="center">
   <img width="49%" alt="Multi-HMR illustration 1" src="assets/visu1.gif">
@@ -49,6 +49,7 @@
 </p>
 
 ## News
+- 2026/01/25: Release of ckpt with [Anny body model](https://github.com/naver/anny).
 - 2024/07/03: Release of training-evaluation code.
 - 2024/07/01: Multi-HMR is accepted to ECCV'24.
 - 2024/06/17: Multi-HMR won [Robin Challenge @CVPR'24](https://rhobin-challenge.github.io/): 3D human reconstruction track.
@@ -85,12 +86,13 @@ The following command will run Multi-HMR on all images in the specified `--img_f
 The `--model_name` flag specifies the model to use.
 The `--extra_views` flags additionally renders the side and bev view of the reconstructed scene, `--save_mesh` saves meshes as in a '.npy' file.
 ```bash
-python3.9 demo.py \
+ANNY_CACHE_DIR=.anny_cache CUDA_VISIBLE_DEVICES=1 python3.9 demo.py \
     --img_folder example_data \
     --out_folder demo_out \
-    --extra_views 1 \
-    --model_name multiHMR_896_L
+    --model_name multiHMR_672_L_anny
 ```
+
+/beegfs/scratch/user/fbaradel/data/anny/visu/pexels/
 
 ## Pre-trained models
 We provide multiple pre-trained checkpoints.
@@ -100,6 +102,7 @@ Once downloaded you need to place them into `$HOME/models/multiHMR`.
 | modelname                     | training data                     | backbone | resolution | runtime (ms) | PVE-3PDW-test | PVE-EHF | PVE-BEDLAM-val | comment |
 |------------------------------------------|---------------------------|----------|------------|--------------|----------|---------|---------|---------|
 | [multiHMR_896_L](https://download.europe.naverlabs.com/ComputerVision/MultiHMR/multiHMR_896_L.pt)  [HuggingFace model](https://huggingface.co/naver/multiHMR_896_L) | BEDLAM+AGORA+CUFFS+UBody                      | ViT-L    | 896x896    |    126      | 89.9  | 42.2 | 56.7 | initial ckpt |
+| [multiHMR_672_L_anny](https://download.europe.naverlabs.com/ComputerVision/MultiHMR/multiHMR_672_L_anny.pt)   |BEDLAM+ITW+AnnyOne                      | ViT-L    | 672x672    |           |   |  |  |  |
 | [multiHMR_672_L](https://download.europe.naverlabs.com/ComputerVision/MultiHMR/multiHMR_672_L.pt)   |BEDLAM+AGORA+CUFFS+UBody                      | ViT-L    | 672x672    |     74      | 94.1  | 37.0 | 58.6 | longer training |
 | [multiHMR_672_B](https://download.europe.naverlabs.com/ComputerVision/MultiHMR/multiHMR_672_B.pt)   |BEDLAM+AGORA+CUFFS+UBody                      | ViT-B    | 672x672    |     43      | 94.0  | 43.6 | 67.2 | longer training |
 | [multiHMR_672_S](https://download.europe.naverlabs.com/ComputerVision/MultiHMR/multiHMR_672_S.pt)    |BEDLAM+AGORA+CUFFS+UBody                      | ViT-S    | 672x672    |     29      | 102.4 | 49.3 | 78.9 | longer training |
